@@ -20,14 +20,32 @@ export default function HeadToHead({ player1Slug, player2Slug }: HeadToHeadProps
       return;
     }
 
+    if (!player1Slug || !player2Slug) {
+      setError('Both player slugs are required');
+      return;
+    }
+
+    if (player1Slug === player2Slug) {
+      setError('Cannot compare a player against themselves');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const client = new StartGGClient(apiKey);
-      const sets = await client.getHeadToHeadHistory(player1Slug, player2Slug, 100);
+      const sets = await client.getHeadToHeadHistory(player1Slug, player2Slug, 200);
       setHeadToHeadSets(sets);
+      
+      if (sets.length === 0) {
+        console.log(`No matches found between ${player1Slug} and ${player2Slug}. This could mean:
+1. The players have never faced each other
+2. The player slugs are incorrect
+3. The matches are not yet indexed by start.gg`);
+      }
     } catch (err) {
+      console.error('Head-to-head fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch head-to-head history');
     } finally {
       setLoading(false);
@@ -114,6 +132,11 @@ export default function HeadToHead({ player1Slug, player2Slug }: HeadToHeadProps
                   <p className="text-sm text-gray-600 mt-1">
                     {set.event.tournament.name}
                   </p>
+                  {set.fullRoundText && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {set.fullRoundText}
+                    </p>
+                  )}
                   {set.completedAt && (
                     <p className="text-xs text-gray-500 mt-1">
                       {new Date(set.completedAt * 1000).toLocaleDateString()}
