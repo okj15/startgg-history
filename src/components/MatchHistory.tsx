@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { StartGGClient } from '@/lib/startgg-client';
 
 interface Set {
@@ -23,7 +23,7 @@ export default function MatchHistory({ playerId }: MatchHistoryProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMatchHistory = async () => {
+  const fetchMatchHistory = useCallback(async () => {
     const apiKey = process.env.NEXT_PUBLIC_STARTGG_API_KEY;
     if (!apiKey || apiKey === 'your_api_key_here') {
       setError('API key is not configured. Please set NEXT_PUBLIC_STARTGG_API_KEY in .env.local');
@@ -42,13 +42,13 @@ export default function MatchHistory({ playerId }: MatchHistoryProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [playerId]);
 
   useEffect(() => {
     if (playerId) {
       fetchMatchHistory();
     }
-  }, [playerId]);
+  }, [playerId, fetchMatchHistory]);
 
   if (loading) {
     return (
