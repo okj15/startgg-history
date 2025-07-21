@@ -35,7 +35,7 @@ export default function HeadToHead({ player1Slug, player2Slug }: HeadToHeadProps
 
     try {
       const client = new StartGGClient(apiKey);
-      const sets = await client.getHeadToHeadHistory(player1Slug, player2Slug, 200);
+      const sets = await client.getHeadToHeadHistory(player1Slug, player2Slug, 50);
       setHeadToHeadSets(sets);
       
       if (sets.length === 0) {

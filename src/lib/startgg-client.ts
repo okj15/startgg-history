@@ -104,37 +104,17 @@ export class StartGGClient {
     const query = `
       query GetPlayerSets($userSlug: String!, $perPage: Int, $page: Int) {
         user(slug: $userSlug) {
-          id
-          name
           player {
-            id
-            gamerTag
-            sets(perPage: $perPage, page: $page, sortBy: "completedAt desc") {
-              pageInfo {
-                total
-                totalPages
-              }
+            sets(perPage: $perPage, page: $page) {
               nodes {
                 id
                 displayScore
                 fullRoundText
                 winnerId
                 completedAt
-                state
                 event {
-                  id
                   name
-                  slug
                   tournament {
-                    id
-                    name
-                    slug
-                  }
-                }
-                phaseGroup {
-                  id
-                  displayIdentifier
-                  phase {
                     name
                   }
                 }
@@ -148,11 +128,9 @@ export class StartGGClient {
                       user {
                         id
                         slug
+                        name
                       }
                     }
-                  }
-                  standing {
-                    placement
                   }
                 }
               }
@@ -172,10 +150,13 @@ export class StartGGClient {
     return result.user?.player?.sets?.nodes || [];
   }
 
-  async getHeadToHeadHistory(player1Slug: string, player2Slug: string, perPage: number = 100): Promise<HeadToHeadSet[]> {
+  async getHeadToHeadHistory(player1Slug: string, player2Slug: string, perPage: number = 50): Promise<HeadToHeadSet[]> {
     // Get more comprehensive set data for both players
     const player1Sets = await this.getPlayerSets(player1Slug, perPage);
     const player2Sets = await this.getPlayerSets(player2Slug, perPage);
+
+    console.log(`Found ${player1Sets.length} sets for player1 (${player1Slug})`);
+    console.log(`Found ${player2Sets.length} sets for player2 (${player2Slug})`);
 
     const headToHeadSets: HeadToHeadSet[] = [];
     const processedSetIds = new Set<number>();
@@ -183,6 +164,8 @@ export class StartGGClient {
     // Clean up player slugs for matching
     const cleanPlayer1Slug = player1Slug.toLowerCase().replace('user/', '');
     const cleanPlayer2Slug = player2Slug.toLowerCase().replace('user/', '');
+    
+    console.log(`Matching for: ${cleanPlayer1Slug} vs ${cleanPlayer2Slug}`);
 
     // Process all sets from player1
     for (const set of player1Sets) {
@@ -204,15 +187,26 @@ export class StartGGClient {
 
         const userSlugs = slot.entrant.participants.map(p => p.user?.slug?.toLowerCase() || '').filter(Boolean);
 
-        // Check if this slot belongs to player1 (more precise matching)
-        const isPlayer1 = userSlugs.some(slug => slug === cleanPlayer1Slug) ||
-                          gamerTags.some(tag => tag === cleanPlayer1Slug || tag.includes(cleanPlayer1Slug) || cleanPlayer1Slug.includes(tag)) ||
-                          entrantName === cleanPlayer1Slug || entrantName.includes(cleanPlayer1Slug) || cleanPlayer1Slug.includes(entrantName);
+        // Enhanced matching logic with multiple strategies
+        const isPlayer1 = slot.entrant.participants.some(p => {
+          if (p.user?.slug) {
+            const userSlug = p.user.slug.toLowerCase();
+            return userSlug === cleanPlayer1Slug || userSlug === `user/${cleanPlayer1Slug}` || 
+                   userSlug.includes(cleanPlayer1Slug) || cleanPlayer1Slug.includes(userSlug.replace('user/', ''));
+          }
+          return false;
+        }) || gamerTags.some(tag => tag === cleanPlayer1Slug) ||
+           entrantName.includes(cleanPlayer1Slug);
 
-        // Check if this slot belongs to player2 (more precise matching)
-        const isPlayer2 = userSlugs.some(slug => slug === cleanPlayer2Slug) ||
-                          gamerTags.some(tag => tag === cleanPlayer2Slug || tag.includes(cleanPlayer2Slug) || cleanPlayer2Slug.includes(tag)) ||
-                          entrantName === cleanPlayer2Slug || entrantName.includes(cleanPlayer2Slug) || cleanPlayer2Slug.includes(entrantName);
+        const isPlayer2 = slot.entrant.participants.some(p => {
+          if (p.user?.slug) {
+            const userSlug = p.user.slug.toLowerCase();
+            return userSlug === cleanPlayer2Slug || userSlug === `user/${cleanPlayer2Slug}` || 
+                   userSlug.includes(cleanPlayer2Slug) || cleanPlayer2Slug.includes(userSlug.replace('user/', ''));
+          }
+          return false;
+        }) || gamerTags.some(tag => tag === cleanPlayer2Slug) ||
+           entrantName.includes(cleanPlayer2Slug);
 
         if (isPlayer1) {
           player1Slot = slot;
@@ -259,13 +253,25 @@ export class StartGGClient {
 
         const userSlugs = slot.entrant.participants.map(p => p.user?.slug?.toLowerCase() || '').filter(Boolean);
 
-        const isPlayer1 = userSlugs.some(slug => slug === cleanPlayer1Slug) ||
-                          gamerTags.some(tag => tag === cleanPlayer1Slug || tag.includes(cleanPlayer1Slug) || cleanPlayer1Slug.includes(tag)) ||
-                          entrantName === cleanPlayer1Slug || entrantName.includes(cleanPlayer1Slug) || cleanPlayer1Slug.includes(entrantName);
+        const isPlayer1 = slot.entrant.participants.some(p => {
+          if (p.user?.slug) {
+            const userSlug = p.user.slug.toLowerCase();
+            return userSlug === cleanPlayer1Slug || userSlug === `user/${cleanPlayer1Slug}` || 
+                   userSlug.includes(cleanPlayer1Slug) || cleanPlayer1Slug.includes(userSlug.replace('user/', ''));
+          }
+          return false;
+        }) || gamerTags.some(tag => tag === cleanPlayer1Slug) ||
+           entrantName.includes(cleanPlayer1Slug);
 
-        const isPlayer2 = userSlugs.some(slug => slug === cleanPlayer2Slug) ||
-                          gamerTags.some(tag => tag === cleanPlayer2Slug || tag.includes(cleanPlayer2Slug) || cleanPlayer2Slug.includes(tag)) ||
-                          entrantName === cleanPlayer2Slug || entrantName.includes(cleanPlayer2Slug) || cleanPlayer2Slug.includes(entrantName);
+        const isPlayer2 = slot.entrant.participants.some(p => {
+          if (p.user?.slug) {
+            const userSlug = p.user.slug.toLowerCase();
+            return userSlug === cleanPlayer2Slug || userSlug === `user/${cleanPlayer2Slug}` || 
+                   userSlug.includes(cleanPlayer2Slug) || cleanPlayer2Slug.includes(userSlug.replace('user/', ''));
+          }
+          return false;
+        }) || gamerTags.some(tag => tag === cleanPlayer2Slug) ||
+           entrantName.includes(cleanPlayer2Slug);
 
         if (isPlayer1) {
           player1Slot = slot;
@@ -292,6 +298,7 @@ export class StartGGClient {
       }
     }
 
+    console.log(`Found ${headToHeadSets.length} head-to-head matches`);
     return headToHeadSets.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
   }
 }
