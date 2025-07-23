@@ -62,7 +62,21 @@ interface PlayerSetsResponse {
   };
 }
 
-export type { Set, HeadToHeadSet };
+interface PlayerSearchResult {
+  id: number;
+  gamerTag: string;
+  name?: string;
+  slug: string;
+  avatarUrl?: string;
+  recentTournaments?: {
+    name: string;
+    slug: string;
+    date?: number;
+  }[];
+}
+
+
+export type { Set, HeadToHeadSet, PlayerSearchResult };
 
 export class StartGGClient {
   private apiUrl = 'https://api.start.gg/gql/alpha';
@@ -185,7 +199,6 @@ export class StartGGClient {
         const gamerTags = slot.entrant.participants.map(p => p.gamerTag.toLowerCase());
         const entrantName = slot.entrant.name.toLowerCase();
 
-        const userSlugs = slot.entrant.participants.map(p => p.user?.slug?.toLowerCase() || '').filter(Boolean);
 
         // Enhanced matching logic with multiple strategies
         const isPlayer1 = slot.entrant.participants.some(p => {
@@ -251,7 +264,6 @@ export class StartGGClient {
         const gamerTags = slot.entrant.participants.map(p => p.gamerTag.toLowerCase());
         const entrantName = slot.entrant.name.toLowerCase();
 
-        const userSlugs = slot.entrant.participants.map(p => p.user?.slug?.toLowerCase() || '').filter(Boolean);
 
         const isPlayer1 = slot.entrant.participants.some(p => {
           if (p.user?.slug) {
@@ -301,4 +313,66 @@ export class StartGGClient {
     console.log(`Found ${headToHeadSets.length} head-to-head matches`);
     return headToHeadSets.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
   }
+
+  async searchPlayers(query: string): Promise<PlayerSearchResult[]> {
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const searchTerm = query.trim();
+    const results: PlayerSearchResult[] = [];
+    
+    // Method 1: Direct slug/ID lookup (like 946a3003)
+    if (/^[a-f0-9]{6,}$/i.test(searchTerm) || searchTerm.startsWith('user/')) {
+      try {
+        const userQuery = `
+          query GetUser($slug: String!) {
+            user(slug: $slug) {
+              id
+              slug
+              name
+              player {
+                id
+                gamerTag
+              }
+              images {
+                url
+                type
+              }
+            }
+          }
+        `;
+
+        const result = await this.query<{
+          user: {
+            id: number;
+            slug: string;
+            name?: string;
+            player?: { id: number; gamerTag: string };
+            images?: { url: string; type: string }[];
+          } | null;
+        }>(userQuery, { slug: searchTerm.startsWith('user/') ? searchTerm : `user/${searchTerm}` });
+
+        if (result.user?.player) {
+          results.push({
+            id: result.user.player.id,
+            gamerTag: result.user.player.gamerTag,
+            name: result.user.name,
+            slug: result.user.slug,
+            avatarUrl: result.user.images?.find(img => img.type === 'profile')?.url,
+            recentTournaments: []
+          });
+        }
+      } catch (err) {
+        console.log('Direct slug search failed for:', searchTerm, err);
+      }
+    }
+
+    // For non-slug searches, we can't reliably search start.gg's API
+    // Return empty results and let the UI handle manual fallback
+    console.log(`Search completed. Found ${results.length} results for: ${searchTerm}`);
+
+    return results;
+  }
+
 }
