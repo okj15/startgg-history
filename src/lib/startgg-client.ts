@@ -75,8 +75,74 @@ interface PlayerSearchResult {
   }[];
 }
 
+interface Tournament {
+  id: number;
+  name: string;
+  slug: string;
+  startAt?: number;
+  endAt?: number;
+  timezone?: string;
+  venueAddress?: string;
+  venueName?: string;
+  city?: string;
+  countryCode?: string;
+  isOnline?: boolean;
+  numAttendees?: number;
+  registrationClosesAt?: number;
+  state?: number; // 1: upcoming, 2: active, 3: completed
+  images?: {
+    url: string;
+    type: string;
+  }[];
+  events?: TournamentEvent[];
+  organizer?: {
+    id: number;
+    slug: string;
+  };
+  owner?: {
+    id: number;
+    slug: string;
+  };
+}
 
-export type { Set, HeadToHeadSet, PlayerSearchResult };
+interface TournamentEvent {
+  id: number;
+  name: string;
+  slug: string;
+  videogame?: {
+    id: number;
+    name: string;
+    displayName: string;
+  };
+  numEntrants?: number;
+  state?: number;
+  startAt?: number;
+}
+
+interface TournamentSearchFilters {
+  query?: string;
+  videogameId?: number;
+  countryCode?: string;
+  state?: number; // 1: upcoming, 2: active, 3: completed
+  upcoming?: boolean;
+  past?: boolean;
+  minEntrants?: number;
+  perPage?: number;
+  page?: number;
+}
+
+interface TournamentSearchResponse {
+  tournaments: {
+    pageInfo: {
+      total: number;
+      totalPages: number;
+    };
+    nodes: Tournament[];
+  };
+}
+
+
+export type { Set, HeadToHeadSet, PlayerSearchResult, Tournament, TournamentEvent, TournamentSearchFilters };
 
 export class StartGGClient {
   private apiUrl = 'https://api.start.gg/gql/alpha';
@@ -373,6 +439,182 @@ export class StartGGClient {
     console.log(`Search completed. Found ${results.length} results for: ${searchTerm}`);
 
     return results;
+  }
+
+  async searchTournaments(filters: TournamentSearchFilters = {}): Promise<Tournament[]> {
+    const {
+      query,
+      videogameId,
+      countryCode,
+      state,
+      upcoming,
+      past,
+      minEntrants,
+      perPage = 20,
+      page = 1
+    } = filters;
+
+    const tournamentQuery = `
+      query SearchTournaments(
+        $perPage: Int
+        $page: Int
+        $sortBy: String
+        $filter: TournamentPageFilter
+      ) {
+        tournaments(
+          query: {
+            perPage: $perPage
+            page: $page
+            sortBy: $sortBy
+            filter: $filter
+          }
+        ) {
+          pageInfo {
+            total
+            totalPages
+          }
+          nodes {
+            id
+            name
+            slug
+            startAt
+            endAt
+            timezone
+            venueAddress
+            venueName
+            city
+            countryCode
+            isOnline
+            numAttendees
+            registrationClosesAt
+            state
+            images {
+              url
+              type
+            }
+            events {
+              id
+              name
+              videogame {
+                displayName
+              }
+              numEntrants
+            }
+            owner {
+              id
+              slug
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      // Build filter object
+      const filter: Record<string, unknown> = {};
+      
+      if (query) filter.name = query;
+      if (videogameId) filter.videogameIds = [videogameId];
+      if (countryCode) filter.countryCode = countryCode;
+      if (state) filter.state = state;
+      if (upcoming !== undefined) filter.upcoming = upcoming;
+      if (past !== undefined) filter.past = past;
+      // Note: minEntrants filtering done client-side as API doesn't support it
+      
+
+      const variables = {
+        perPage,
+        page,
+        sortBy: upcoming ? "startAt asc" : "startAt desc",
+        filter
+      };
+
+      const result = await this.query<TournamentSearchResponse>(tournamentQuery, variables);
+      
+      let tournaments = result.tournaments?.nodes?.map(tournament => ({
+        ...tournament,
+        organizer: tournament.owner ? {
+          id: tournament.owner.id,
+          slug: tournament.owner.slug
+        } : undefined
+      })) || [];
+      
+      // Client-side filtering by minimum entrants
+      if (minEntrants) {
+        tournaments = tournaments.filter(tournament => 
+          tournament.numAttendees && tournament.numAttendees >= minEntrants
+        );
+      }
+
+      return tournaments;
+
+    } catch (err) {
+      console.error('Tournament search failed:', err);
+      throw new Error(`Failed to search tournaments: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }
+
+  async getTournament(slug: string): Promise<Tournament | null> {
+    const tournamentQuery = `
+      query GetTournament($slug: String!) {
+        tournament(slug: $slug) {
+          id
+          name
+          slug
+          startAt
+          endAt
+          timezone
+          venueAddress
+          venueName
+          city
+          countryCode
+          isOnline
+          numAttendees
+          registrationClosesAt
+          state
+          images {
+            url
+            type
+          }
+          events {
+            id
+            name
+            slug
+            numEntrants
+            state
+            startAt
+            videogame {
+              id
+              name
+              displayName
+            }
+          }
+          owner {
+            id
+            slug
+          }
+        }
+      }
+    `;
+
+    try {
+      const result = await this.query<{ tournament: Tournament | null }>(tournamentQuery, { slug });
+      
+      if (result.tournament) {
+        return {
+          ...result.tournament,
+          organizer: result.tournament.owner ? {
+            id: result.tournament.owner.id,
+            slug: result.tournament.owner.slug
+          } : undefined
+        };
+      }
+      
+      return null;
+    } catch (err) {
+      console.error('Tournament fetch failed:', err);
+      throw new Error(`Failed to fetch tournament: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   }
 
 }

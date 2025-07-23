@@ -35,6 +35,16 @@ export default function Navigation() {
               >
                 Head-to-Head
               </Link>
+              <Link
+                href="/tournaments"
+                className={`text-sm font-medium transition-colors ${
+                  pathname === '/tournaments'
+                    ? 'text-blue-600 border-b-2 border-blue-600 pb-1'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Tournaments
+              </Link>
             </div>
           </div>
         </div>
