@@ -2,18 +2,20 @@
 
 import { useState } from 'react';
 import HeadToHead from '@/components/HeadToHead';
+import PlayerSearch from '@/components/PlayerSearch';
+import { PlayerSearchResult } from '@/lib/startgg-client';
 
 export default function HeadToHeadPage() {
-  const [player1Slug, setPlayer1Slug] = useState<string>('');
-  const [player2Slug, setPlayer2Slug] = useState<string>('');
+  const [selectedPlayer1, setSelectedPlayer1] = useState<PlayerSearchResult | null>(null);
+  const [selectedPlayer2, setSelectedPlayer2] = useState<PlayerSearchResult | null>(null);
   const [searchedPlayer1, setSearchedPlayer1] = useState<string | null>(null);
   const [searchedPlayer2, setSearchedPlayer2] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (player1Slug.trim() && player2Slug.trim()) {
-      setSearchedPlayer1(player1Slug.trim());
-      setSearchedPlayer2(player2Slug.trim());
+    if (selectedPlayer1?.slug && selectedPlayer2?.slug) {
+      setSearchedPlayer1(selectedPlayer1.slug);
+      setSearchedPlayer2(selectedPlayer2.slug);
     }
   };
 
@@ -30,45 +32,36 @@ export default function HeadToHeadPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="player1" className="block text-sm font-medium text-gray-700 mb-2">
-                  Player 1 Slug
-                </label>
-                <input
-                  type="text"
-                  id="player1"
-                  value={player1Slug}
-                  onChange={(e) => setPlayer1Slug(e.target.value)}
-                  placeholder="Enter first player slug (e.g., b149c474)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="player2" className="block text-sm font-medium text-gray-700 mb-2">
-                  Player 2 Slug
-                </label>
-                <input
-                  type="text"
-                  id="player2"
-                  value={player2Slug}
-                  onChange={(e) => setPlayer2Slug(e.target.value)}
-                  placeholder="Enter second player slug (e.g., a3f2d8e1)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <PlayerSearch
+                onPlayerSelect={setSelectedPlayer1}
+                placeholder="Enter player name or slug (e.g., fe93cbdc)"
+                label="Player 1"
+                selectedPlayer={selectedPlayer1}
+              />
+              <PlayerSearch
+                onPlayerSelect={setSelectedPlayer2}
+                placeholder="Enter player name or slug (e.g., c377c071)"
+                label="Player 2"
+                selectedPlayer={selectedPlayer2}
+              />
             </div>
             <div className="flex justify-center">
               <button
                 type="submit"
-                className="px-8 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                disabled={!selectedPlayer1 || !selectedPlayer2}
+                className="px-8 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Compare Players
               </button>
             </div>
+            
+            {selectedPlayer1 && selectedPlayer2 && (
+              <div className="text-center text-sm text-gray-600">
+                Comparing <strong>{selectedPlayer1.gamerTag}</strong> vs <strong>{selectedPlayer2.gamerTag}</strong>
+              </div>
+            )}
           </form>
         </div>
 
